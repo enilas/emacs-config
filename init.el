@@ -91,13 +91,26 @@
 		       :ensure t
 		       :hook (after-init . solaire-global-mode)))
 
-(elpaca golden-ratio (use-package golden-ratio
-		       :ensure t
-		       :hook (after-init . golden-ratio-mode)))
+(elpaca zoom (use-package zoom
+	       :ensure t
+	       :config
+	       (custom-set-variables
+		'(zoom-size '(0.618 . 0.618)))
+	       (custom-set-variables
+		'(zoom-mode t))))
 
 (display-time-mode 1)
 
-(elpaca all-the-icons (use-package all-the-icons))
+(elpaca all-the-icons (use-package all-the-icons
+			:ensure t))
+(elpaca nerd-icons (use-package nerd-icons
+		     :ensure t))
+
+(elpaca dashboard
+  (use-package dashboard
+    :ensure t
+    :config
+    (dashboard-setup-startup-hook)))
 
 (elpaca doom-modeline (use-package doom-modeline
 			:ensure t
@@ -120,6 +133,51 @@
 
 ;; Usability -------------------
 
+(elpaca ws-butler (use-package ws-butler
+		    :config
+		    (add-hook 'prog-mode-hook #'ws-butler-mode)))
+
+(elpaca helpful (use-package helpful
+		  :config
+		  ;; Note that the built-in `describe-function' includes both functions
+		  ;; and macros. `helpful-function' is functions only, so we provide
+		  ;; `helpful-callable' as a drop-in replacement.
+		  (global-set-key (kbd "C-h f") #'helpful-callable)
+		  (global-set-key (kbd "C-h v") #'helpful-variable)
+		  (global-set-key (kbd "C-h k") #'helpful-key)
+		  (global-set-key (kbd "C-h x") #'helpful-command)
+		  ;; Lookup the current symbol at point. C-c C-d is a common keybinding
+		  ;; for this in lisp modes.
+		  (global-set-key (kbd "C-c C-d") #'helpful-at-point)
+
+		  ;; Look up *F*unctions (excludes macros).
+		  ;;
+		  ;; By default, C-h F is bound to `Info-goto-emacs-command-node'. Helpful
+		  ;; already links to the manual, if a function is referenced there.
+		  (global-set-key (kbd "C-h F") #'helpful-function)))
+
+(when (fboundp 'windmove-default-keybindings)
+  (windmove-default-keybindings))
+
+(elpaca vertico (use-package vertico
+		  :init
+		  (vertico-mode)))
+
+(elpaca marginalia (use-package marginalia))
+(elpaca consult (use-package consult))
+(elpaca orderless ;; Optionally use the `orderless' completion style.
+  (use-package orderless
+  :init
+  ;; Configure a custom style dispatcher (see the Consult wiki)
+  ;; (setq orderless-style-dispatchers '(+orderless-consult-dispatch orderless-affix-dispatch)
+  ;;       orderless-component-separator #'orderless-escapable-split-on-space)
+  (setq completion-styles '(orderless basic)
+        completion-category-defaults nil
+        completion-category-overrides '((file (styles partial-completion))))))
+(elpaca embark (use-package embark))
+(elpaca embark-consult (use-package embark-consult))
+(elpaca swiper (use-package swiper))
+
 ;; Development -----------------
 
 (electric-pair-mode 1)
@@ -130,8 +188,56 @@
 (elpaca git-commit (use-package git-commit))
 (elpaca tree-sitter (use-package tree-sitter))
 (elpaca magit (use-package magit))
+(elpaca inflections (use-package inflections))
+
+(elpaca projectile (use-package projectile
+		     :config
+		     (projectile-mode +1)
+		     (define-key projectile-mode-map (kbd "C-c p") 'projectile-command-map)))
+
+(elpaca clojure-mode (use-package clojure-mode))
+;; People are working on replacing with clojure-ts-mode. Feature incomplete at the moment.
 (elpaca clojure-ts-mode (use-package clojure-ts-mode))
+(elpaca clojure-snippets (use-package clojure-snippets))
+
+(defun my-clojure-mode-hook ()
+  (clj-refactor-mode 1)
+  (yas-minor-mode 1) ; for adding require/use/import statements
+  ;; This choice of keybinding leaves cider-macroexpand-1 unbound
+  (cljr-add-keybindings-with-prefix "C-c C-m"))
+
+(elpaca clj-refactor (use-package clj-refactor
+		       :config
+		       (add-hook 'clojure-mode-hook #'my-clojure-mode-hook)))
 (elpaca cider (use-package cider))
 
 (global-set-key [C-mouse-4] 'text-scale-increase)
 (global-set-key [C-mouse-5] 'text-scale-decrease)
+
+
+;; A few more useful configurations...
+(use-package emacs
+  :init
+  ;; Add prompt indicator to `completing-read-multiple'.
+  ;; We display [CRM<separator>], e.g., [CRM,] if the separator is a comma.
+  (defun crm-indicator (args)
+    (cons (format "[CRM%s] %s"
+                  (replace-regexp-in-string
+                   "\\`\\[.*?]\\*\\|\\[.*?]\\*\\'" ""
+                   crm-separator)
+                  (car args))
+          (cdr args)))
+  (advice-add #'completing-read-multiple :filter-args #'crm-indicator)
+
+  ;; Do not allow the cursor in the minibuffer prompt
+  (setq minibuffer-prompt-properties
+        '(read-only t cursor-intangible t face minibuffer-prompt))
+  (add-hook 'minibuffer-setup-hook #'cursor-intangible-mode)
+
+  ;; Support opening new minibuffers from inside existing minibuffers.
+  (setq enable-recursive-minibuffers t)
+
+  ;; Emacs 28 and newer: Hide commands in M-x which do not work in the current
+  ;; mode.  Vertico commands are hidden in normal buffers. This setting is
+  ;; useful beyond Vertico.
+  (setq read-extended-command-predicate #'command-completion-default-include-p))
